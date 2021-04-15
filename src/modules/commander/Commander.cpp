@@ -973,6 +973,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					} else {
 						if (cmd_from_manual_stick) {
 							arming_res = arm(arm_disarm_reason_t::RC_STICK, !forced);
+
 						} else {
 							arming_res = arm(arm_disarm_reason_t::COMMAND_INTERNAL, !forced);
 						}
@@ -985,6 +986,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					} else {
 						if (cmd_from_manual_stick) {
 							arming_res = disarm(arm_disarm_reason_t::RC_STICK);
+
 						} else {
 							arming_res = disarm(arm_disarm_reason_t::COMMAND_INTERNAL);
 						}
