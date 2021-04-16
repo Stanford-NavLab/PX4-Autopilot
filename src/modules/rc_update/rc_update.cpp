@@ -49,8 +49,8 @@ static bool operator ==(const manual_control_switches_s &a, const manual_control
 {
 	return (a.mode_slot == b.mode_slot &&
 		a.return_switch == b.return_switch &&
-		a.loiter_switch == b.loiter_switch &&
 		a.offboard_switch == b.offboard_switch &&
+		a.loiter_switch == b.loiter_switch &&
 		a.kill_switch == b.kill_switch &&
 		a.arm_switch == b.arm_switch &&
 		a.transition_switch == b.transition_switch &&
@@ -596,6 +596,7 @@ void RCUpdate::UpdateManualSwitches(const hrt_abstime &timestamp_sample)
 		if (switches.mode_slot > num_slots) {
 			switches.mode_slot = num_slots;
 		}
+<<<<<<< HEAD
 
 	} else if (_param_rc_map_flightmode_buttons.get() > 0) {
 		switches.mode_slot = manual_control_switches_s::MODE_SLOT_NONE;
@@ -626,6 +627,8 @@ void RCUpdate::UpdateManualSwitches(const hrt_abstime &timestamp_sample)
 		if (_button_pressed_hysteresis.get_state()) {
 			switches.mode_slot = _potential_button_press_slot;
 		}
+=======
+>>>>>>> 6431b006e8 (commander: remove legacy mode switch selection)
 	}
 
 	switches.return_switch     = get_rc_sw2pos_position(rc_channels_s::FUNCTION_RETURN,     _param_rc_return_th.get());
