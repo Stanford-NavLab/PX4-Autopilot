@@ -99,7 +99,27 @@ enum class position_nav_loss_actions_t {
 extern const char *const arming_state_names[];
 extern const char *const nav_state_names[];
 
+<<<<<<< HEAD
 using arm_disarm_reason_t = events::px4::enums::arm_disarm_reason_t;
+=======
+enum class arm_disarm_reason_t {
+	TRANSITION_TO_STANDBY = 0,
+	RC_STICK = 1,
+	RC_SWITCH = 2,
+	COMMAND_INTERNAL = 3,
+	COMMAND_EXTERNAL = 4,
+	MISSION_START = 5,
+	SAFETY_BUTTON = 6,
+	AUTO_DISARM_LAND = 7,
+	AUTO_DISARM_PREFLIGHT = 8,
+	KILL_SWITCH = 9,
+	LOCKDOWN = 10,
+	FAILURE_DETECTOR = 11,
+	SHUTDOWN = 12,
+	UNIT_TEST = 13,
+	RC_BUTTON = 14,
+};
+>>>>>>> 2393cd1a1b (manual_control: support arming button)
 
 enum RCLossExceptionBits {
 	RCL_EXCEPT_MISSION = (1 << 0),
