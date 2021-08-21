@@ -63,16 +63,6 @@ menu "Toolchain"
         help
             relative path to the ROMFS root directory
 
-    config BOARD_BUILD_BOOTLOADER
-        bool "Enable bootloader"
-        help
-            flag to enable building and including the bootloader config
-
-    config BOARD_IO
-        string "IO board name"
-        help
-            name of IO board to be built and included in the ROMFS (requires a valid ROMFSROOT)
-
     config BOARD_CONSTRAINED_FLASH
         bool "Contrained flash"
         help

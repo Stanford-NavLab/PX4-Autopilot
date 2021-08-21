@@ -3,3 +3,10 @@ menuconfig DRIVERS_PX4IO
 	default n
 	---help---
 		Enable support for px4io
+
+menuconfig DRIVERS_PX4IO_BOARD_IO
+depends on DRIVERS_PX4IO
+    string "px4io IO board"
+    default "px4_io-v2_default"
+    help
+        name of IO board to be built and included in the ROMFS (requires a valid ROMFSROOT)

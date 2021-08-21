@@ -49,8 +49,8 @@ for name in glob.glob(px4_dir + '/boards/*/*/*.cmake'):
                     print("CONFIG_BOARD_SERIAL_" + match.groups()[0] + "=\"" + match.groups()[1] + "\"", file=w)
                 matches = re.finditer(io_regex, clean_line, re.MULTILINE)
                 for matchNum, match in enumerate(matches, start=1):
-                    print("CONFIG_BOARD_IO=\"" + match.groups()[0] + "\"")
-                    print("CONFIG_BOARD_IO=\"" + match.groups()[0] + "\"", file=w)
+                    print("CONFIG_DRIVERS_PX4IO_BOARD_IO=\"" + match.groups()[0] + "\"")
+                    print("CONFIG_DRIVERS_PX4IO_BOARD_IO=\"" + match.groups()[0] + "\"", file=w)
                 matches = re.finditer(romfs_regex, clean_line, re.MULTILINE)
                 for matchNum, match in enumerate(matches, start=1):
                     print("CONFIG_BOARD_ROMFSROOT=\"" + match.groups()[0] + "\"")
