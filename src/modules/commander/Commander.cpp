@@ -568,6 +568,8 @@ transition_result_t Commander::arm(arm_disarm_reason_t calling_reason, bool run_
 			    !_status.rc_signal_lost && _is_throttle_above_center) {
 				mavlink_log_critical(&_mavlink_log_pub, "Arming denied: throttle above center\t");
 				events::send(events::ID("commander_arm_denied_throttle_center"),
+				{events::Log::Critical, events::LogInternal::Info},
+				"Arming denied: throttle above center");
 				tune_negative(true);
 				return TRANSITION_DENIED;
 
@@ -578,6 +580,7 @@ transition_result_t Commander::arm(arm_disarm_reason_t calling_reason, bool run_
 				mavlink_log_critical(&_mavlink_log_pub, "Arming denied: high throttle\t");
 				events::send(events::ID("commander_arm_denied_throttle_high"),
 				{events::Log::Critical, events::LogInternal::Info},
+				"Arming denied: high throttle");
 				tune_negative(true);
 				return TRANSITION_DENIED;
 			}
@@ -921,13 +924,13 @@ Commander::handle_command(const vehicle_command_s &cmd)
 
 					} else {
 						if (cmd_from_manual_stick) {
-							arming_res = arm(arm_disarm_reason_t::RC_STICK);
+							arming_res = arm(arm_disarm_reason_t::rc_stick);
 
 						} else if (cmd_from_manual_switch) {
-							arming_res = arm(arm_disarm_reason_t::RC_SWITCH);
+							arming_res = arm(arm_disarm_reason_t::rc_switch);
 
 						} else {
-							arming_res = arm(arm_disarm_reason_t::COMMAND_INTERNAL, !forced);
+							arming_res = arm(arm_disarm_reason_t::command_internal, !forced);
 						}
 					}
 
@@ -937,13 +940,13 @@ Commander::handle_command(const vehicle_command_s &cmd)
 
 					} else {
 						if (cmd_from_manual_stick) {
-							arming_res = disarm(arm_disarm_reason_t::RC_STICK);
+							arming_res = disarm(arm_disarm_reason_t::rc_stick);
 
 						} else if (cmd_from_manual_switch) {
-							arming_res = disarm(arm_disarm_reason_t::RC_SWITCH);
+							arming_res = disarm(arm_disarm_reason_t::rc_switch);
 
 						} else {
-							arming_res = disarm(arm_disarm_reason_t::COMMAND_INTERNAL);
+							arming_res = disarm(arm_disarm_reason_t::command_internal);
 						}
 					}
 
@@ -952,10 +955,10 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					// This should come from an arming button internally, otherwise something is wrong.
 					if (!cmd.from_external && cmd_from_manual_button) {
 						if (_armed.armed) {
-							arming_res = disarm(arm_disarm_reason_t::RC_BUTTON);
+							arming_res = disarm(arm_disarm_reason_t::rc_button);
 
 						} else {
-							arming_res = arm(arm_disarm_reason_t::RC_BUTTON);
+							arming_res = arm(arm_disarm_reason_t::rc_button);
 						}
 
 					} else {
@@ -2332,6 +2335,7 @@ Commander::run()
 				} else {
 					if (_status.rc_signal_lost) {
 						if (_last_valid_manual_control_setpoint > 0) {
+							float elapsed = hrt_elapsed_time(&_last_valid_manual_control_setpoint) * 1e-6f;
 							mavlink_log_info(&_mavlink_log_pub, "Manual control regained after %.1fs\t", (double)elapsed);
 							events::send<float>(events::ID("commander_rc_regained"), events::Log::Info,
 									    "Manual control regained after {1:.1} s", elapsed);

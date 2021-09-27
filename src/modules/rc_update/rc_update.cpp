@@ -596,39 +596,6 @@ void RCUpdate::UpdateManualSwitches(const hrt_abstime &timestamp_sample)
 		if (switches.mode_slot > num_slots) {
 			switches.mode_slot = num_slots;
 		}
-<<<<<<< HEAD
-
-	} else if (_param_rc_map_flightmode_buttons.get() > 0) {
-		switches.mode_slot = manual_control_switches_s::MODE_SLOT_NONE;
-		bool is_consistent_button_press = false;
-
-		for (uint8_t slot = 0; slot < manual_control_switches_s::MODE_SLOT_NUM; slot++) {
-
-			// If the slot is not in use (-1), get_rc_value() will return 0
-			float value = get_rc_value(rc_channels_s::FUNCTION_FLTBTN_SLOT_1 + slot, -1.0, 1.0);
-
-			// The range goes from -1 to 1, checking that value is greater than 0.5f
-			// corresponds to check that the signal is above 75% of the overall range.
-			if (value > 0.5f) {
-				const uint8_t current_button_press_slot = slot + 1;
-
-				// The same button stays pressed consistently
-				if (current_button_press_slot == _potential_button_press_slot) {
-					is_consistent_button_press = true;
-				}
-
-				_potential_button_press_slot = current_button_press_slot;
-				break;
-			}
-		}
-
-		_button_pressed_hysteresis.set_state_and_update(is_consistent_button_press, hrt_absolute_time());
-
-		if (_button_pressed_hysteresis.get_state()) {
-			switches.mode_slot = _potential_button_press_slot;
-		}
-=======
->>>>>>> 6431b006e8 (commander: remove legacy mode switch selection)
 	}
 
 	switches.return_switch     = get_rc_sw2pos_position(rc_channels_s::FUNCTION_RETURN,     _param_rc_return_th.get());
