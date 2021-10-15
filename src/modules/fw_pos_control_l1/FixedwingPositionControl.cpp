@@ -236,7 +236,6 @@ FixedwingPositionControl::vehicle_command_poll()
 				abort_landing(true);
 			}
 		}
-
 	}
 }
 
@@ -737,9 +736,6 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 	_att_sp.fw_control_yaw = false;		// by default we don't want yaw to be contoller directly with rudder
 	_att_sp.apply_flaps = vehicle_attitude_setpoint_s::FLAPS_OFF;		// by default we don't use flaps
 
-	/* no throttle limit as default */
-	float throttle_max = 1.0f;
-
 	/* save time when airplane is in air */
 	if (!_was_in_air && !_landed) {
 		_was_in_air = true;
@@ -832,7 +828,7 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 	} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF &&
 		   _runway_takeoff.runwayTakeoffEnabled()) {
 
-		_att_sp.thrust_body[0] = _runway_takeoff.getThrottle(now, min(get_tecs_thrust(), throttle_max));
+		_att_sp.thrust_body[0] = _runway_takeoff.getThrottle(now, get_tecs_thrust());
 
 	} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_IDLE) {
 
@@ -842,10 +838,10 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 		/* Copy thrust and pitch values from tecs */
 		if (_landed) {
 			// when we are landed state we want the motor to spin at idle speed
-			_att_sp.thrust_body[0] = min(_param_fw_thr_idle.get(), throttle_max);
+			_att_sp.thrust_body[0] = min(_param_fw_thr_idle.get(), 1.f);
 
 		} else {
-			_att_sp.thrust_body[0] = min(get_tecs_thrust(), throttle_max);
+			_att_sp.thrust_body[0] = get_tecs_thrust();
 		}
 	}
 
@@ -863,8 +859,6 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 	if (use_tecs_pitch) {
 		_att_sp.pitch_body = get_tecs_pitch();
 	}
-
-	_last_manual = !_control_mode.flag_control_position_enabled;
 }
 
 void
@@ -894,8 +888,6 @@ FixedwingPositionControl::control_auto_altitude(const hrt_abstime &now)
 	}
 
 	_att_sp.pitch_body = get_tecs_pitch();
-
-	_last_manual = !_control_mode.flag_control_position_enabled;
 }
 
 void
@@ -930,8 +922,6 @@ FixedwingPositionControl::control_auto_climbrate(const hrt_abstime &now)
 	}
 
 	_att_sp.pitch_body = get_tecs_pitch();
-
-	_last_manual = !_control_mode.flag_control_position_enabled;
 }
 
 uint8_t
@@ -1770,8 +1760,6 @@ FixedwingPositionControl::control_manual_altitude(const hrt_abstime &now, const 
 	}
 
 	_att_sp.pitch_body = get_tecs_pitch();
-
-	_last_manual = !_control_mode.flag_control_position_enabled;
 }
 
 void
@@ -1890,8 +1878,6 @@ FixedwingPositionControl::control_manual_position(const hrt_abstime &now, const 
 	}
 
 	_att_sp.pitch_body = get_tecs_pitch();
-
-	_last_manual = !_control_mode.flag_control_position_enabled;
 }
 
 float
@@ -1909,7 +1895,7 @@ float
 FixedwingPositionControl::get_tecs_thrust()
 {
 	if (_is_tecs_running) {
-		return _tecs.get_throttle_setpoint();
+		return min(_tecs.get_throttle_setpoint(), 1.f);
 	}
 
 	// return 0 to prevent stale tecs state when it's not running
@@ -2113,6 +2099,7 @@ FixedwingPositionControl::Run()
 			}
 
 			_l1_control.reset_has_guidance_updated();
+			_last_manual = !_control_mode.flag_control_position_enabled;
 		}
 
 		perf_end(_loop_perf);
