@@ -170,7 +170,7 @@ private:
 
 	perf_counter_t	_loop_perf;				///< loop performance counter
 
-	map_projection_reference_s _global_local_proj_ref{};
+	MapProjection _global_local_proj_ref{};
 	float	_global_local_alt0{NAN};
 
 	float	_hold_alt{0.0f};				///< hold altitude for altitude mode
