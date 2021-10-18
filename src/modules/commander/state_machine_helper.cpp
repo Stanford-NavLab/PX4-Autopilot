@@ -138,17 +138,17 @@ static hrt_abstime last_preflight_check = 0;	///< initialize so it gets checked 
 
 void set_link_loss_nav_state(vehicle_status_s &status, actuator_armed_s &armed,
 			     const vehicle_status_flags_s &status_flags, commander_state_s &internal_state, link_loss_actions_t link_loss_act,
-			     const float ll_delay, const float gps_fail_openloop_loiter_time_s);
+			     const float ll_delay);
 
 void reset_link_loss_globals(actuator_armed_s &armed, const bool old_failsafe, const link_loss_actions_t link_loss_act);
 
 void set_offboard_loss_nav_state(vehicle_status_s &status, actuator_armed_s &armed,
 				 const vehicle_status_flags_s &status_flags,
-				 const offboard_loss_actions_t offboard_loss_act, const float gps_fail_openloop_loiter_time_s);
+				 const offboard_loss_actions_t offboard_loss_act);
 
 void set_offboard_loss_rc_nav_state(vehicle_status_s &status, actuator_armed_s &armed,
 				    const vehicle_status_flags_s &status_flags,
-				    const offboard_loss_rc_actions_t offboard_loss_rc_act, const float gps_fail_openloop_loiter_time_s);
+				    const offboard_loss_rc_actions_t offboard_loss_rc_act);
 
 void reset_offboard_loss_globals(actuator_armed_s &armed, const bool old_failsafe,
 				 const offboard_loss_actions_t offboard_loss_act,
@@ -487,7 +487,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		   const link_loss_actions_t rc_loss_act, const offboard_loss_actions_t offb_loss_act,
 		   const offboard_loss_rc_actions_t offb_loss_rc_act,
 		   const position_nav_loss_actions_t posctl_nav_loss_act,
-		   const float param_com_rcl_act_t, const int param_com_rcl_except, const float gps_fail_openloop_loiter_time_s)
+		   const float param_com_rcl_act_t, const int param_com_rcl_except)
 {
 	const navigation_state_t nav_state_old = status.nav_state;
 
@@ -512,8 +512,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		// Require RC for all manual modes
 		if (status.rc_signal_lost && is_armed) {
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t);
 
 		} else {
 			switch (internal_state.main_state) {
@@ -547,8 +546,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 
 			if (status.rc_signal_lost && is_armed) {
 				enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc);
-				set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t,
-							gps_fail_openloop_loiter_time_s);
+				set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t);
 
 				/* As long as there is RC, we can fallback to ALTCTL, or STAB. */
 				/* A local position estimate is enough for POSCTL for multirotors,
@@ -556,8 +554,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 				 * For fixedwing, a global position is needed. */
 
 			} else if (check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags,
-							       rc_fallback_allowed, status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING,
-							       gps_fail_openloop_loiter_time_s)) {
+							       rc_fallback_allowed, status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)) {
 				// nothing to do - everything done in check_invalid_pos_nav_state
 
 			} else {
@@ -573,9 +570,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		 * - if we have vtol transition failure
 		 * - on data and RC link loss */
 
-		if (is_armed
-		    && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true,
-						   gps_fail_openloop_loiter_time_s)) {
+		if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
 			// nothing to do - everything done in check_invalid_pos_nav_state
 		} else if (status.engine_failure) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
@@ -590,16 +585,14 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 			   && is_armed && !landed) {
 			// Data link lost, data link loss reaction configured -> do configured reaction
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_datalink);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act, 0,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act, 0);
 
 		} else if (status.rc_signal_lost && !(param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_MISSION)
 			   && status_flags.rc_signal_found_once && is_armed && !landed) {
 			// RC link lost, rc loss not disabled in mission, RC was used before -> RC loss reaction after delay
 			// Safety pilot expects to be able to take over by RC in case anything unexpected happens
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t);
 
 		} else if (status.rc_signal_lost && !(param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_MISSION)
 			   && status.data_link_lost && !data_link_loss_act_configured
@@ -608,7 +601,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 			// Lost all communication, by default it's considered unsafe to continue the mission
 			// This is only reached when flying mission completely without RC (it was not present since boot)
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_datalink);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, 0, gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, 0);
 
 		} else if (status.rc_signal_lost && (param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_MISSION)
 			   && status.data_link_lost && !data_link_loss_act_configured
@@ -617,8 +610,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 			// All links lost, all link loss reactions disabled -> return after mission finished
 			// Pilot disabled all reactions, finish mission but then return to avoid lost vehicle
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc_and_no_datalink);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, link_loss_actions_t::AUTO_RTL, 0,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, link_loss_actions_t::AUTO_RTL, 0);
 
 		} else if (!stay_in_failsafe) {
 			// normal mission operation if there's no need to stay in failsafe
@@ -633,23 +625,19 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		if (status.engine_failure) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
-		} else if (is_armed
-			   && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true,
-					   gps_fail_openloop_loiter_time_s)) {
+		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
 			// nothing to do - everything done in check_invalid_pos_nav_state
 		} else if (status.data_link_lost && data_link_loss_act_configured && !landed && is_armed) {
 			// Data link lost, data link loss reaction configured -> do configured reaction
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_datalink);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act, 0,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act, 0);
 
 		} else if (status.rc_signal_lost && !(param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_HOLD)
 			   && status_flags.rc_signal_found_once && is_armed && !landed) {
 			// RC link lost, rc loss not disabled in loiter, RC was used before -> RC loss reaction after delay
 			// Safety pilot expects to be able to take over by RC in case anything unexpected happens
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t);
 
 		} else if (status.rc_signal_lost && !(param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_HOLD)
 			   && status.data_link_lost && !data_link_loss_act_configured
@@ -658,7 +646,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 			// Lost all communication, by default it's considered unsafe to continue the mission
 			// This is only reached when flying mission completely without RC (it was not present since boot)
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_datalink);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, 0, gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, 0);
 
 		} else {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER;
@@ -673,9 +661,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		if (status.engine_failure) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
-		} else if (is_armed
-			   && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true,
-					   gps_fail_openloop_loiter_time_s)) {
+		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
 			// nothing to do - everything done in check_invalid_pos_nav_state
 		} else {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_RTL;
@@ -690,9 +676,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		if (status.engine_failure) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
-		} else if (is_armed
-			   && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true,
-					   gps_fail_openloop_loiter_time_s)) {
+		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
 			// nothing to do - everything done in check_invalid_pos_nav_state
 
 		} else {
@@ -710,9 +694,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 			// is not possible and therefore the internal_state needs to be adjusted.
 			internal_state.main_state = commander_state_s::MAIN_STATE_POSCTL;
 
-		} else if (is_armed
-			   && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true,
-					   gps_fail_openloop_loiter_time_s)) {
+		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, true)) {
 			// failsafe: necessary position estimate lost; switching is done in check_invalid_pos_nav_state
 
 			// Orbit can only be started via vehicle_command (mavlink). Consequently, recovery from failsafe into orbit
@@ -721,8 +703,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 
 		} else if (status.data_link_lost && data_link_loss_act_configured && !landed && is_armed) {
 			// failsafe: just datalink is lost and we're in air
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act, 0,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act, 0);
 
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_datalink);
 
@@ -734,7 +715,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 			// Orbit does not depend on RC but while armed & all links lost & when datalink loss is not set up, we failsafe
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc);
 
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, 0, gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, 0);
 
 			// Orbit can only be started via vehicle_command (mavlink). Consequently, recovery from failsafe into orbit
 			// is not possible and therefore the internal_state needs to be adjusted.
@@ -754,23 +735,19 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		if (status.engine_failure) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
-		} else if (is_armed
-			   && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false,
-					   gps_fail_openloop_loiter_time_s)) {
+		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false)) {
 			// nothing to do - everything done in check_invalid_pos_nav_state
 		} else if (status.data_link_lost && data_link_loss_act_configured && !landed && is_armed) {
 			// Data link lost, data link loss reaction configured -> do configured reaction
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_datalink);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act, 0,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, data_link_loss_act, 0);
 
 		} else if (status.rc_signal_lost && !(param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_HOLD)
 			   && status_flags.rc_signal_found_once && is_armed && !landed) {
 			// RC link lost, rc loss not disabled in loiter, RC was used before -> RC loss reaction after delay
 			// Safety pilot expects to be able to take over by RC in case anything unexpected happens
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t);
 
 		} else if (status.rc_signal_lost && !(param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_HOLD)
 			   && status.data_link_lost && !data_link_loss_act_configured
@@ -779,7 +756,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 			// Lost all communication, by default it's considered unsafe to continue the mission
 			// This is only reached when flying mission completely without RC (it was not present since boot)
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_datalink);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, 0, gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, 0);
 
 		} else {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF;
@@ -794,9 +771,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		if (status.engine_failure) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
-		} else if (is_armed
-			   && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false,
-					   gps_fail_openloop_loiter_time_s)) {
+		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false)) {
 			// nothing to do - everything done in check_invalid_pos_nav_state
 
 		} else {
@@ -812,9 +787,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		if (status.engine_failure) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL;
 
-		} else if (is_armed
-			   && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false,
-					   gps_fail_openloop_loiter_time_s)) {
+		} else if (is_armed && check_invalid_pos_nav_state(status, old_failsafe, mavlink_log_pub, status_flags, false, false)) {
 			// nothing to do - everything done in check_invalid_pos_nav_state
 
 		} else {
@@ -829,25 +802,26 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 			if (status.rc_signal_lost) {
 				// Offboard and RC are lost
 				enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc_and_no_offboard);
-				set_offboard_loss_nav_state(status, armed, status_flags, offb_loss_act, gps_fail_openloop_loiter_time_s);
+				set_offboard_loss_nav_state(status, armed, status_flags, offb_loss_act);
 
 			} else {
 				// Offboard is lost, RC is ok
 				if (param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_OFFBOARD) {
 					enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_offboard);
-					set_offboard_loss_nav_state(status, armed, status_flags, offb_loss_act, gps_fail_openloop_loiter_time_s);
+					set_offboard_loss_nav_state(status, armed, status_flags, offb_loss_act);
 
 				} else {
 					enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_offboard);
-					set_offboard_loss_rc_nav_state(status, armed, status_flags, offb_loss_rc_act, gps_fail_openloop_loiter_time_s);
+					set_offboard_loss_rc_nav_state(status, armed, status_flags, offb_loss_rc_act);
+
 				}
+
 			}
 
 		} else if (status.rc_signal_lost && !(param_com_rcl_except & RCLossExceptionBits::RCL_EXCEPT_OFFBOARD)) {
 			// Only RC is lost
 			enable_failsafe(status, old_failsafe, mavlink_log_pub, event_failsafe_reason_t::no_rc);
-			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t,
-						gps_fail_openloop_loiter_time_s);
+			set_link_loss_nav_state(status, armed, status_flags, internal_state, rc_loss_act, param_com_rcl_act_t);
 
 		} else {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_OFFBOARD;
@@ -861,8 +835,7 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 }
 
 bool check_invalid_pos_nav_state(vehicle_status_s &status, bool old_failsafe, orb_advert_t *mavlink_log_pub,
-				 const vehicle_status_flags_s &status_flags, const bool use_rc, const bool using_global_pos,
-				 const float gps_fail_openloop_loiter_time_s)
+				 const vehicle_status_flags_s &status_flags, const bool use_rc, const bool using_global_pos)
 {
 	bool fallback_required = false;
 
@@ -891,22 +864,16 @@ bool check_invalid_pos_nav_state(vehicle_status_s &status, bool old_failsafe, or
 
 		} else {
 			// go into a descent that does not require stick control
-			if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING &&
-			    status_flags.condition_local_position_valid) {
+			if (status_flags.condition_local_position_valid) {
 				status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LAND;
 
 			} else if (status_flags.condition_local_altitude_valid) {
-
-				if (status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_FIXED_WING ||
-				    (status.nav_state == vehicle_status_s::NAVIGATION_STATE_FIXED_BANK_LOITER &&
-				     hrt_elapsed_time(&status.failsafe_timestamp) > (gps_fail_openloop_loiter_time_s * 1_s))) {
-
-					// got into DESCEND if not a FW or the time in NAVIGATION_STATE_FIXED_BANK_LOITER is up
+				if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
 					status.nav_state = vehicle_status_s::NAVIGATION_STATE_DESCEND;
 
-				} else if (status.nav_state != vehicle_status_s::NAVIGATION_STATE_DESCEND) {
-					// if in FW mode and not already in DESCEND, switch to NAVIGATION_STATE_FIXED_BANK_LOITER that maintains altitude
-					status.nav_state = vehicle_status_s::NAVIGATION_STATE_FIXED_BANK_LOITER;
+				} else {
+					// TODO: FW position controller doesn't run without condition_global_position_valid
+					status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL;
 				}
 
 			} else {
@@ -929,7 +896,7 @@ bool check_invalid_pos_nav_state(vehicle_status_s &status, bool old_failsafe, or
 
 void set_link_loss_nav_state(vehicle_status_s &status, actuator_armed_s &armed,
 			     const vehicle_status_flags_s &status_flags, commander_state_s &internal_state, link_loss_actions_t link_loss_act,
-			     const float ll_delay, const float gps_fail_openloop_loiter_time_s)
+			     const float ll_delay)
 {
 	if (hrt_elapsed_time(&status.failsafe_timestamp) < (ll_delay * 1_s)
 	    && link_loss_act != link_loss_actions_t::DISABLED) {
@@ -965,27 +932,19 @@ void set_link_loss_nav_state(vehicle_status_s &status, actuator_armed_s &armed,
 			return;
 
 		} else {
-			// go into a descent that does not require stick control
-			if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING &&
-			    status_flags.condition_local_position_valid) {
-				status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LAND;
-				return;
+			if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
+				if (status_flags.condition_local_position_valid) {
+					status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LAND;
+					return;
 
-			} else if (status_flags.condition_local_altitude_valid) {
-				if (status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_FIXED_WING ||
-				    (status.nav_state == vehicle_status_s::NAVIGATION_STATE_FIXED_BANK_LOITER &&
-				     hrt_elapsed_time(&status.failsafe_timestamp) > (gps_fail_openloop_loiter_time_s * 1_s))) {
-
-					// got into DESCEND if not a FW or the time in NAVIGATION_STATE_FIXED_BANK_LOITER is up
+				} else if (status_flags.condition_local_altitude_valid) {
 					status.nav_state = vehicle_status_s::NAVIGATION_STATE_DESCEND;
-
-				} else if (status.nav_state != vehicle_status_s::NAVIGATION_STATE_DESCEND) {
-					// if in FW mode and not already in DESCEND, switch to NAVIGATION_STATE_FIXED_BANK_LOITER that maintains altitude
-					status.nav_state = vehicle_status_s::NAVIGATION_STATE_FIXED_BANK_LOITER;
+					return;
 				}
 
 			} else {
-				status.nav_state = vehicle_status_s::NAVIGATION_STATE_TERMINATION;
+				// TODO: FW position controller doesn't run without condition_global_position_valid
+				status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL;
 				return;
 			}
 		}
@@ -1016,7 +975,7 @@ void reset_link_loss_globals(actuator_armed_s &armed, const bool old_failsafe, c
 
 void set_offboard_loss_nav_state(vehicle_status_s &status, actuator_armed_s &armed,
 				 const vehicle_status_flags_s &status_flags,
-				 const offboard_loss_actions_t offboard_loss_act, const float gps_fail_openloop_loiter_time_s)
+				 const offboard_loss_actions_t offboard_loss_act)
 {
 	switch (offboard_loss_act) {
 	case offboard_loss_actions_t::DISABLED:
@@ -1054,21 +1013,13 @@ void set_offboard_loss_nav_state(vehicle_status_s &status, actuator_armed_s &arm
 	}
 
 	// If none of the above worked, try to mitigate
-	if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING &&
-	    status_flags.condition_local_position_valid) {
-		status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LAND;
-
-	} else if (status_flags.condition_local_altitude_valid) {
-		if (status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_FIXED_WING ||
-		    (status.nav_state == vehicle_status_s::NAVIGATION_STATE_FIXED_BANK_LOITER &&
-		     hrt_elapsed_time(&status.failsafe_timestamp) > (gps_fail_openloop_loiter_time_s * 1_s))) {
-
-			// got into DESCEND if not a FW or the time in NAVIGATION_STATE_FIXED_BANK_LOITER is up
+	if (status_flags.condition_local_altitude_valid) {
+		if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_DESCEND;
 
-		} else if (status.nav_state != vehicle_status_s::NAVIGATION_STATE_DESCEND) {
-			// if in FW mode and not already in DESCEND, switch to NAVIGATION_STATE_FIXED_BANK_LOITER that maintains altitude
-			status.nav_state = vehicle_status_s::NAVIGATION_STATE_FIXED_BANK_LOITER;
+		} else {
+			// TODO: FW position controller doesn't run without condition_global_position_valid
+			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL;
 		}
 
 	} else {
@@ -1078,7 +1029,7 @@ void set_offboard_loss_nav_state(vehicle_status_s &status, actuator_armed_s &arm
 
 void set_offboard_loss_rc_nav_state(vehicle_status_s &status, actuator_armed_s &armed,
 				    const vehicle_status_flags_s &status_flags,
-				    const offboard_loss_rc_actions_t offboard_loss_rc_act, const float gps_fail_openloop_loiter_time_s)
+				    const offboard_loss_rc_actions_t offboard_loss_rc_act)
 {
 	switch (offboard_loss_rc_act) {
 	case offboard_loss_rc_actions_t::DISABLED:
@@ -1140,21 +1091,14 @@ void set_offboard_loss_rc_nav_state(vehicle_status_s &status, actuator_armed_s &
 	}
 
 	// If none of the above worked, try to mitigate
-	if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING &&
-	    status_flags.condition_local_position_valid) {
-		status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LAND;
-
-	} else if (status_flags.condition_local_altitude_valid) {
-		if (status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_FIXED_WING ||
-		    (status.nav_state == vehicle_status_s::NAVIGATION_STATE_FIXED_BANK_LOITER &&
-		     hrt_elapsed_time(&status.failsafe_timestamp) > (gps_fail_openloop_loiter_time_s * 1_s))) {
-
-			// got into DESCEND if not a FW or the time in NAVIGATION_STATE_FIXED_BANK_LOITER is up
+	if (status_flags.condition_local_altitude_valid) {
+		//TODO: Add case for rover
+		if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
 			status.nav_state = vehicle_status_s::NAVIGATION_STATE_DESCEND;
 
-		} else if (status.nav_state != vehicle_status_s::NAVIGATION_STATE_DESCEND) {
-			// if in FW mode and not already in DESCEND, switch to NAVIGATION_STATE_FIXED_BANK_LOITER that maintains altitude
-			status.nav_state = vehicle_status_s::NAVIGATION_STATE_FIXED_BANK_LOITER;
+		} else {
+			// TODO: FW position controller doesn't run without condition_global_position_valid
+			status.nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL;
 		}
 
 	} else {

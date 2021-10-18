@@ -123,14 +123,14 @@ bool set_nav_state(vehicle_status_s &status, actuator_armed_s &armed, commander_
 		   const link_loss_actions_t rc_loss_act, const offboard_loss_actions_t offb_loss_act,
 		   const offboard_loss_rc_actions_t offb_loss_rc_act,
 		   const position_nav_loss_actions_t posctl_nav_loss_act,
-		   const float param_com_rcl_act_t, const int param_com_rcl_except, const float gps_fail_openloop_loiter_time_s);
+		   const float param_com_rcl_act_t, const int param_com_rcl_except);
+
 /*
  * Checks the validty of position data against the requirements of the current navigation
  * mode and switches mode if position data required is not available.
  */
 bool check_invalid_pos_nav_state(vehicle_status_s &status, bool old_failsafe, orb_advert_t *mavlink_log_pub,
-				 const vehicle_status_flags_s &status_flags, const bool use_rc, const bool using_global_pos,
-				 const float gps_fail_openloop_loiter_time_s);
+				 const vehicle_status_flags_s &status_flags, const bool use_rc, const bool using_global_pos);
 
 
 // COM_LOW_BAT_ACT parameter values
