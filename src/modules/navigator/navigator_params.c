@@ -206,13 +206,11 @@ PARAM_DEFINE_INT32(NAV_FORCE_VT, 1);
  * before it starts descending. Set to 0 to disable.
  *
  * @unit s
- * @min 0.0
- * @max 3600.0
- * @decimal 0
- * @increment 1
+ * @min 0
+ * @max 3600
  * @group Mission
  */
-PARAM_DEFINE_FLOAT(NAV_GPSF_LT, 100.0f);
+PARAM_DEFINE_INT32(NAV_GPSF_LT, 30);
 
 /**
  * GPS failure fixed roll angle

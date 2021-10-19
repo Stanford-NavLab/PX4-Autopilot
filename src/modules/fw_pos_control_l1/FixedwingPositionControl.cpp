@@ -492,7 +492,7 @@ FixedwingPositionControl::status_publish()
 
 	pos_ctrl_status.timestamp = hrt_absolute_time();
 
-	pos_ctrl_status.type = _type;
+	pos_ctrl_status.type = _position_sp_type;
 
 	_pos_ctrl_status_pub.publish(pos_ctrl_status);
 }
@@ -670,7 +670,7 @@ FixedwingPositionControl::do_takeoff_help(float *hold_altitude, float *pitch_lim
 }
 
 void
-FixedwingPositionControl::set_control_mode_current(bool pos_sp_curr_valid)
+FixedwingPositionControl::set_control_mode_current(const hrt_abstime &now, bool pos_sp_curr_valid)
 {
 	/* only run position controller in fixed-wing mode and during transitions for VTOL */
 	if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING && !_vehicle_status.in_transition_mode) {
@@ -682,16 +682,34 @@ FixedwingPositionControl::set_control_mode_current(bool pos_sp_curr_valid)
 	     _control_mode.flag_control_offboard_enabled) && pos_sp_curr_valid) {
 		_control_mode_current = FW_POSCTRL_MODE_AUTO;
 
-	} else if (_control_mode.flag_control_auto_enabled && _control_mode.flag_control_altitude_enabled) {
-		if (_control_mode_current != FW_POSCTRL_MODE_AUTO_ALTITUDE) {
-			/* Need to init because last loop iteration was in a different mode */
-			_hold_alt = _current_altitude;
+	} else if (_control_mode.flag_control_auto_enabled && _control_mode.flag_control_climb_rate_enabled) {
+
+		// reset timer the first time we switch into this mode
+		if (_control_mode_current != FW_POSCTRL_MODE_AUTO_ALTITUDE && _control_mode_current != FW_POSCTRL_MODE_AUTO_CLIMBRATE) {
+			_time_in_fixed_bank_loiter = now;
 		}
 
-		_control_mode_current = FW_POSCTRL_MODE_AUTO_ALTITUDE;
+		if (hrt_elapsed_time(&_time_in_fixed_bank_loiter) < (_param_nav_gpsf_lt.get() * 1_s)
+		    && !_vehicle_status.in_transition_mode) {
+			if (_control_mode_current != FW_POSCTRL_MODE_AUTO_ALTITUDE) {
+				// Need to init because last loop iteration was in a different mode
+				_hold_alt = _current_altitude;
+				mavlink_log_critical(&_mavlink_log_pub, "Start loiter with fixed bank angle.\t");
+				events::send(events::ID("fixedwing_position_control_fb_loiter"), events::Log::Critical,
+					     "Start loiter with fixed bank angle");
+			}
 
-	} else if (_control_mode.flag_control_auto_enabled && _control_mode.flag_control_climb_rate_enabled) {
-		_control_mode_current = FW_POSCTRL_MODE_AUTO_CLIMBRATE;
+			_control_mode_current = FW_POSCTRL_MODE_AUTO_ALTITUDE;
+
+		} else {
+			if (_control_mode_current != FW_POSCTRL_MODE_AUTO_CLIMBRATE && !_vehicle_status.in_transition_mode) {
+				mavlink_log_critical(&_mavlink_log_pub, "Start descending.\t");
+				events::send(events::ID("fixedwing_position_control_descend"), events::Log::Critical, "Start descending");
+			}
+
+			_control_mode_current = FW_POSCTRL_MODE_AUTO_CLIMBRATE;
+		}
+
 
 	} else if (_control_mode.flag_control_manual_enabled && _control_mode.flag_control_position_enabled) {
 		if (_control_mode_current != FW_POSCTRL_MODE_MANUAL_POSITION) {
@@ -772,11 +790,9 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 	_att_sp.pitch_reset_integral = false;
 	_att_sp.yaw_reset_integral = false;
 
-	const uint8_t position_sp_type = handle_setpoint_type(pos_sp_curr.type, pos_sp_curr);
+	_position_sp_type = handle_setpoint_type(pos_sp_curr.type, pos_sp_curr);
 
-	_type = position_sp_type; // for publication
-
-	switch (position_sp_type) {
+	switch (_position_sp_type) {
 	case position_setpoint_s::SETPOINT_TYPE_IDLE:
 		_att_sp.thrust_body[0] = 0.0f;
 		_att_sp.roll_body = 0.0f;
@@ -801,12 +817,12 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 	}
 
 	/* reset landing state */
-	if (position_sp_type != position_setpoint_s::SETPOINT_TYPE_LAND) {
+	if (_position_sp_type != position_setpoint_s::SETPOINT_TYPE_LAND) {
 		reset_landing_state();
 	}
 
 	/* reset takeoff/launch state */
-	if (position_sp_type != position_setpoint_s::SETPOINT_TYPE_TAKEOFF) {
+	if (_position_sp_type != position_setpoint_s::SETPOINT_TYPE_TAKEOFF) {
 		reset_takeoff_state();
 	}
 
@@ -992,6 +1008,11 @@ FixedwingPositionControl::handle_setpoint_type(const uint8_t setpoint_type, cons
 				position_sp_type = position_setpoint_s::SETPOINT_TYPE_POSITION;
 			}
 		}
+	}
+
+	// set to type loiter during VTOL transitions in Land mode (to not start FW landing logic)
+	if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_LAND && _vehicle_status.in_transition_mode) {
+		position_sp_type = position_setpoint_s::SETPOINT_TYPE_LOITER;
 	}
 
 	return position_sp_type;
@@ -2022,7 +2043,7 @@ FixedwingPositionControl::Run()
 		Vector2d curr_pos(_current_latitude, _current_longitude);
 		Vector2f ground_speed(_local_pos.vx, _local_pos.vy);
 
-		set_control_mode_current(_pos_sp_triplet.current.valid);
+		set_control_mode_current(_local_pos.timestamp, _pos_sp_triplet.current.valid);
 
 		switch (_control_mode_current) {
 		case FW_POSCTRL_MODE_AUTO: {

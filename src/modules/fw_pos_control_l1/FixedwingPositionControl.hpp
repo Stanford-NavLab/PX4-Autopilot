@@ -254,10 +254,12 @@ private:
 	float _manual_control_setpoint_altitude{0.0f};
 	float _manual_control_setpoint_airspeed{0.0f};
 
+	hrt_abstime _time_in_fixed_bank_loiter{0};
+
 	ECL_L1_Pos_Controller	_l1_control;
 	TECS			_tecs;
 
-	uint8_t _type{0};
+	uint8_t _position_sp_type{0};
 	enum FW_POSCTRL_MODE {
 		FW_POSCTRL_MODE_AUTO,
 		FW_POSCTRL_MODE_AUTO_ALTITUDE,
@@ -353,7 +355,7 @@ private:
 	void		reset_takeoff_state(bool force = false);
 	void		reset_landing_state();
 	Vector2f 	get_nav_speed_2d(const Vector2f &ground_speed);
-	void		set_control_mode_current(bool pos_sp_curr_valid);
+	void		set_control_mode_current(const hrt_abstime &now, bool pos_sp_curr_valid);
 
 	/*
 	 * Call TECS : a wrapper function to call the TECS implementation
@@ -436,6 +438,7 @@ private:
 
 		(ParamFloat<px4::params::FW_TKO_PITCH_MIN>) _takeoff_pitch_min,
 
+		(ParamInt<px4::params::NAV_GPSF_LT>) _param_nav_gpsf_lt,
 		(ParamFloat<px4::params::NAV_GPSF_R>) _param_nav_gpsf_r
 
 	)
