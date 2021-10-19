@@ -316,7 +316,13 @@ bool PWMOut::update_pwm_out_state(bool on)
 
 				int32_t tim_config = 0;
 				param_t handle = param_find(param_name);
-				param_get(handle, &tim_config);
+
+				if (handle != PARAM_INVALID) {
+					param_get(handle, &tim_config);
+
+				} else {
+					PX4_ERR("unable to find %s", param_name);
+				}
 
 				if (tim_config > 0) {
 					_timer_rates[timer] = tim_config;
@@ -564,13 +570,19 @@ void PWMOut::update_params()
 			sprintf(str, "%s_MIN%u", prefix, i + 1);
 			int32_t pwm_min = -1;
 
-			if (param_get(param_find(str), &pwm_min) == PX4_OK) {
+			param_t param_handle = param_find(str);
+
+			if (param_handle == PARAM_INVALID) {
+				PX4_ERR("unable to find %s", str);
+			}
+
+			if ((param_handle != PARAM_INVALID) && (param_get(param_handle, &pwm_min) == PX4_OK)) {
 				if (pwm_min >= 0 && pwm_min != 1000) {
 					_mixing_output.minValue(i) = math::constrain(pwm_min, (int32_t) PWM_LOWEST_MIN, (int32_t) PWM_HIGHEST_MIN);
 
 					if (pwm_min != _mixing_output.minValue(i)) {
 						int32_t pwm_min_new = _mixing_output.minValue(i);
-						param_set(param_find(str), &pwm_min_new);
+						param_set(param_handle, &pwm_min_new);
 					}
 
 				} else if (pwm_default_channel_mask & 1 << i) {
@@ -584,13 +596,19 @@ void PWMOut::update_params()
 			sprintf(str, "%s_MAX%u", prefix, i + 1);
 			int32_t pwm_max = -1;
 
-			if (param_get(param_find(str), &pwm_max) == PX4_OK) {
+			param_t param_handle = param_find(str);
+
+			if (param_handle == PARAM_INVALID) {
+				PX4_ERR("unable to find %s", str);
+			}
+
+			if ((param_handle != PARAM_INVALID) && (param_get(param_handle, &pwm_max) == PX4_OK)) {
 				if (pwm_max >= 0 && pwm_max != 2000) {
 					_mixing_output.maxValue(i) = math::constrain(pwm_max, (int32_t) PWM_LOWEST_MAX, (int32_t) PWM_HIGHEST_MAX);
 
 					if (pwm_max != _mixing_output.maxValue(i)) {
 						int32_t pwm_max_new = _mixing_output.maxValue(i);
-						param_set(param_find(str), &pwm_max_new);
+						param_set(param_handle, &pwm_max_new);
 					}
 
 				} else if (pwm_default_channel_mask & 1 << i) {
@@ -604,13 +622,19 @@ void PWMOut::update_params()
 			sprintf(str, "%s_FAIL%u", prefix, i + 1);
 			int32_t pwm_failsafe = -1;
 
-			if (param_get(param_find(str), &pwm_failsafe) == PX4_OK) {
+			param_t param_handle = param_find(str);
+
+			if (param_handle == PARAM_INVALID) {
+				PX4_ERR("unable to find %s", str);
+			}
+
+			if ((param_handle != PARAM_INVALID) && (param_get(param_handle, &pwm_failsafe) == PX4_OK)) {
 				if (pwm_failsafe >= 0) {
 					_mixing_output.failsafeValue(i) = math::constrain(pwm_failsafe, (int32_t) 0, (int32_t) PWM_HIGHEST_MAX);
 
 					if (pwm_failsafe != _mixing_output.failsafeValue(i)) {
 						int32_t pwm_fail_new = _mixing_output.failsafeValue(i);
-						param_set(param_find(str), &pwm_fail_new);
+						param_set(param_handle, &pwm_fail_new);
 					}
 				}
 			}
@@ -621,13 +645,19 @@ void PWMOut::update_params()
 			sprintf(str, "%s_DIS%u", prefix, i + 1);
 			int32_t pwm_dis = -1;
 
-			if (param_get(param_find(str), &pwm_dis) == PX4_OK) {
+			param_t param_handle = param_find(str);
+
+			if (param_handle == PARAM_INVALID) {
+				PX4_ERR("unable to find %s", str);
+			}
+
+			if ((param_handle != PARAM_INVALID) && (param_get(param_handle, &pwm_dis) == PX4_OK)) {
 				if (pwm_dis >= 0 && pwm_dis != 900) {
 					_mixing_output.disarmedValue(i) = math::constrain(pwm_dis, (int32_t) 0, (int32_t) PWM_HIGHEST_MAX);
 
 					if (pwm_dis != _mixing_output.disarmedValue(i)) {
 						int32_t pwm_dis_new = _mixing_output.disarmedValue(i);
-						param_set(param_find(str), &pwm_dis_new);
+						param_set(param_handle, &pwm_dis_new);
 					}
 
 				} else if (pwm_default_channel_mask & 1 << i) {
@@ -645,7 +675,13 @@ void PWMOut::update_params()
 			sprintf(str, "%s_REV%u", prefix, i + 1);
 			int32_t pwm_rev = 0;
 
-			if (param_get(param_find(str), &pwm_rev) == PX4_OK) {
+			param_t param_handle = param_find(str);
+
+			if (param_handle == PARAM_INVALID) {
+				PX4_ERR("unable to find %s", str);
+			}
+
+			if ((param_handle != PARAM_INVALID) && (param_get(param_handle, &pwm_rev) == PX4_OK)) {
 				uint16_t &reverse_pwm_mask = _mixing_output.reverseOutputMask();
 
 				if (pwm_rev >= 1) {
@@ -665,7 +701,15 @@ void PWMOut::update_params()
 			sprintf(str, "%s_TRIM%u", prefix, i + 1);
 
 			float pval = 0.0f;
-			param_get(param_find(str), &pval);
+			param_t param_handle = param_find(str);
+
+			if (param_handle != PARAM_INVALID) {
+				param_get(param_handle, &pval);
+
+			} else {
+				PX4_ERR("unable to find %s", str);
+			}
+
 			values[i] = roundf(10000 * pval);
 		}
 
