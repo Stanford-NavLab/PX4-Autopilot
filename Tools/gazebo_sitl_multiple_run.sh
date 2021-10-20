@@ -18,9 +18,9 @@ function spawn_model() {
 	X=$3
 	Y=$4
 	X=${X:=0.0}
-	Y=${Y:=$((3*${N}))}
+	Y=${Y:=$((10*${N}))}
 
-	SUPPORTED_MODELS=("iris" "plane" "standard_vtol" "rover" "r1_rover" "typhoon_h480")
+	SUPPORTED_MODELS=("iris" "iris_rplidar" "iris_laser" "plane" "standard_vtol" "rover" "r1_rover" "typhoon_h480")
 	if [[ " ${SUPPORTED_MODELS[*]} " != *"$MODEL"* ]];
 	then
 		echo "ERROR: Currently only vehicle model $MODEL is not supported!"
@@ -35,7 +35,10 @@ function spawn_model() {
 	pushd "$working_dir" &>/dev/null
 	echo "starting instance $N in $(pwd)"
 	../bin/px4 -i $N -d "$build_path/etc" -w sitl_${MODEL}_${N} -s etc/init.d-posix/rcS >out.log 2>err.log &
-	python3 ${src_path}/Tools/sitl_gazebo/scripts/jinja_gen.py ${src_path}/Tools/sitl_gazebo/models/${MODEL}/${MODEL}.sdf.jinja ${src_path}/Tools/sitl_gazebo --mavlink_tcp_port $((4560+${N})) --mavlink_udp_port $((14560+${N})) --mavlink_id $((1+${N})) --gst_udp_port $((5600+${N})) --video_uri $((5600+${N})) --mavlink_cam_udp_port $((14530+${N})) --output-file /tmp/${MODEL}_${N}.sdf
+	python3 ${src_path}/Tools/sitl_gazebo/scripts/jinja_gen.py ${src_path}/Tools/sitl_gazebo/models/${MODEL}/${MODEL}.sdf.jinja \
+		${src_path}/Tools/sitl_gazebo --mavlink_tcp_port $((4560+${N})) --mavlink_udp_port $((14560+${N})) --mavlink_id $((1+${N})) \
+		--gst_udp_port $((5600+${N})) --video_uri $((5600+${N})) --mavlink_cam_udp_port $((14530+${N})) --ros_namespace "iris_${N}" \
+		--output-file /tmp/${MODEL}_${N}.sdf
 
 	echo "Spawning ${MODEL}_${N} at ${X} ${Y}"
 
@@ -86,15 +89,8 @@ sleep 1
 
 source ${src_path}/Tools/setup_gazebo.bash ${src_path} ${src_path}/build/${target}
 
-# To use gazebo_ros ROS2 plugins
-if [[ -n "$ROS_VERSION" ]] && [ "$ROS_VERSION" == "2" ]; then
-	ros_args="-s libgazebo_ros_init.so -s libgazebo_ros_factory.so"
-else
-	ros_args=""
-fi
-
 echo "Starting gazebo"
-gzserver ${src_path}/Tools/sitl_gazebo/worlds/${world}.world --verbose $ros_args &
+gzserver ${src_path}/Tools/sitl_gazebo/worlds/${world}.world --verbose &
 sleep 5
 
 n=0
