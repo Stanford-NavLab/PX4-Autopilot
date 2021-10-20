@@ -163,7 +163,7 @@ int Logger::task_spawn(int argc, char *argv[])
 	_task_id = px4_task_spawn_cmd("logger",
 				      SCHED_DEFAULT,
 				      SCHED_PRIORITY_LOG_CAPTURE,
-				      3700,
+				      PX4_STACK_ADJUSTED(3700),
 				      (px4_main_t)&run_trampoline,
 				      (char *const *)argv);
 
@@ -1253,7 +1253,7 @@ int Logger::create_log_dir(LogType type, tm *tt, char *log_dir, int log_dir_len)
 	return strlen(log_dir);
 }
 
-int Logger::get_log_file_name(LogType type, char *file_name, size_t file_name_size)
+int Logger::get_log_file_name(LogType type, char *file_name, size_t file_name_size, bool notify)
 {
 	tm tt = {};
 	bool time_ok = false;
@@ -1269,6 +1269,15 @@ int Logger::get_log_file_name(LogType type, char *file_name, size_t file_name_si
 		replay_suffix = "_replayed";
 	}
 
+	const char *crypto_suffix = "";
+#if defined(PX4_CRYPTO)
+
+	if (_param_sdlog_crypto_algorithm.get() != 0) {
+		crypto_suffix = "c";
+	}
+
+#endif
+
 	char *log_file_name = _file_name[(int)type].log_file_name;
 
 	if (time_ok) {
@@ -1280,8 +1289,24 @@ int Logger::get_log_file_name(LogType type, char *file_name, size_t file_name_si
 
 		char log_file_name_time[16] = "";
 		strftime(log_file_name_time, sizeof(log_file_name_time), "%H_%M_%S", &tt);
-		snprintf(log_file_name, sizeof(LogFileName::log_file_name), "%s%s.ulg", log_file_name_time, replay_suffix);
+		snprintf(log_file_name, sizeof(LogFileName::log_file_name), "%s%s.ulg%s", log_file_name_time, replay_suffix,
+			 crypto_suffix);
 		snprintf(file_name + n, file_name_size - n, "/%s", log_file_name);
+
+		if (notify) {
+			mavlink_log_info(&_mavlink_log_pub, "[logger] %s\t", file_name);
+			uint16_t year = 0;
+			uint8_t month = 0;
+			uint8_t day = 0;
+			sscanf(_file_name[(int)type].log_dir, "%hd-%hhd-%hhd", &year, &month, &day);
+			uint8_t hour = 0;
+			uint8_t minute = 0;
+			uint8_t second = 0;
+			sscanf(log_file_name_time, "%hhd_%hhd_%hhd", &hour, &minute, &second);
+			events::send<uint16_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t>(events::ID("logger_open_file_time"),
+					events::Log::Info,
+					"logging: opening log file {1}-{2}-{3}/{4}_{5}_{6}.ulg", year, month, day, hour, minute, second);
+		}
 
 	} else {
 		int n = create_log_dir(type, nullptr, file_name, file_name_size);
@@ -1290,12 +1315,13 @@ int Logger::get_log_file_name(LogType type, char *file_name, size_t file_name_si
 			return -1;
 		}
 
-		uint16_t file_number = 1; // start with file log001
+		uint16_t file_number = 100; // start with file log100
 
 		/* look for the next file that does not exist */
 		while (file_number <= MAX_NO_LOGFILE) {
 			/* format log file path: e.g. /fs/microsd/log/sess001/log001.ulg */
-			snprintf(log_file_name, sizeof(LogFileName::log_file_name), "log%03" PRIu16 "%s.ulg", file_number, replay_suffix);
+			snprintf(log_file_name, sizeof(LogFileName::log_file_name), "log%03" PRIu16 "%s.ulg%s", file_number, replay_suffix,
+				 crypto_suffix);
 			snprintf(file_name + n, file_name_size - n, "/%s", log_file_name);
 
 			if (!util::file_exist(file_name)) {
@@ -1308,6 +1334,16 @@ int Logger::get_log_file_name(LogType type, char *file_name, size_t file_name_si
 		if (file_number > MAX_NO_LOGFILE) {
 			/* we should not end up here, either we have more than MAX_NO_LOGFILE on the SD card, or another problem */
 			return -1;
+		}
+
+		if (notify) {
+			mavlink_log_info(&_mavlink_log_pub, "[logger] %s\t", file_name);
+			uint16_t sess = 0;
+			sscanf(_file_name[(int)type].log_dir, "sess%hd", &sess);
+			uint16_t index = 0;
+			sscanf(log_file_name, "log%hd", &index);
+			events::send<uint16_t, uint16_t>(events::ID("logger_open_file_sess"), events::Log::Info,
+							 "logging: opening log file sess{1}/log{2}.ulg", sess, index);
 		}
 	}
 
@@ -1338,19 +1374,22 @@ void Logger::start_log_file(LogType type)
 
 	char file_name[LOG_DIR_LEN] = "";
 
-	if (get_log_file_name(type, file_name, sizeof(file_name))) {
+	if (get_log_file_name(type, file_name, sizeof(file_name), type == LogType::Full)) {
 		PX4_ERR("failed to get log file name");
 		return;
 	}
 
-	if (type == LogType::Full) {
-		/* print logging path, important to find log file later */
-		mavlink_log_info(&_mavlink_log_pub, "[logger] %s", file_name);
-	}
+#if defined(PX4_CRYPTO)
+	_writer.set_encryption_parameters(
+		(px4_crypto_algorithm_t)_param_sdlog_crypto_algorithm.get(),
+		_param_sdlog_crypto_key.get(),
+		_param_sdlog_crypto_exchange_key.get());
+#endif
 
 	_writer.start_log_file(type, file_name);
 	_writer.select_write_backend(LogWriter::BackendFile);
 	_writer.set_need_reliable_transfer(true);
+
 	write_header(type);
 	write_version(type);
 	write_formats(type);
