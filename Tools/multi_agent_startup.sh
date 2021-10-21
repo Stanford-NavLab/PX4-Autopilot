@@ -1,4 +1,6 @@
 #!/bin/bash
+# Startup script for px4_multi_agent_planning
+# Modified from: gazebo_sitl_multiple_run.sh
 # run multiple instances of the 'px4' binary, with the gazebo SITL simulation
 # It assumes px4 is already built, with 'make px4_sitl_default gazebo'
 
@@ -18,7 +20,7 @@ function spawn_model() {
 	X=$3
 	Y=$4
 	X=${X:=0.0}
-	Y=${Y:=$((3*${N}))}
+	Y=${Y:=$((10*${N}))}
 
 	SUPPORTED_MODELS=("iris" "iris_rplidar" "iris_laser" "plane" "standard_vtol" "rover" "r1_rover" "typhoon_h480")
 	if [[ " ${SUPPORTED_MODELS[*]} " != *"$MODEL"* ]];
@@ -45,6 +47,12 @@ function spawn_model() {
 	gz model --spawn-file=/tmp/${MODEL}_${N}.sdf --model-name=${MODEL}_${N} -x ${X} -y ${Y} -z 0.0
 
 	popd &>/dev/null
+
+    # start micrortps agent
+    micrortps_agent -t UDP -n iris_${N} -r $((2020+2*${N})) -s $((2019+2*${N}))
+
+    # start offboard node and takeoff
+    ros2 launch bringup takeoff.launch.py ns:=iris_${N}
 
 }
 
